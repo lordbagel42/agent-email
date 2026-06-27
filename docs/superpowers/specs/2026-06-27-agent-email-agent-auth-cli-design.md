@@ -141,10 +141,16 @@ no custom endpoints needed for that.
 Node + TypeScript, `commander`, native `fetch`. Config at
 `~/.config/agent-email/config.json` (mode `0600`): `{ baseUrl, token, user }`.
 
+Container-friendly auth: token is read from (in order) `--config <path>`,
+`AGENT_EMAIL_TOKEN` env var, then the default config file — so the CLI works the
+same whether run on the host or via `docker run`. Base URL likewise overridable
+via `AGENT_EMAIL_URL`.
+
 Commands:
 
 | Command | Behaviour |
 |---------|-----------|
+| `signup` | Prompt email + password → `POST /api/auth/sign-up/email`, then run the device-grant login automatically. (Browser signup also available via the `sign-in` page toggle.) |
 | `login` | Device grant. Print code + URL, poll honoring `interval`/`slow_down`, stop on `expired_token`. Store token + identity. |
 | `logout` | Revoke session, clear config. |
 | `whoami` | Show current identity (re-prompt login on 401). |
@@ -157,9 +163,20 @@ Commands:
 | `agents ls` | List connected agents (agent-auth `/agent/list`). |
 | `agents revoke <id>` | Revoke an agent (agent-auth `/agent/revoke`). |
 
-Distribution: workspace package in this repo, runnable via `pnpm`/`node`, with a
-`bin` entry so it can be linked/installed as `agent-email`. (Open item: publish
-to npm vs. local-only — see Open questions.)
+Distribution: **container image on GHCR.** A `cli/Dockerfile` builds the CLI
+into a small Node image; a GitHub Actions workflow
+(`.github/workflows/cli-image.yml`) builds and pushes
+`ghcr.io/<owner>/agent-email` on git tags (and `latest` on main). Usage:
+
+```bash
+docker run --rm -it \
+  -v "$HOME/.config/agent-email:/root/.config/agent-email" \
+  ghcr.io/<owner>/agent-email login
+# or, headless:
+docker run --rm -e AGENT_EMAIL_TOKEN=... ghcr.io/<owner>/agent-email ls
+```
+
+A `bin` entry (`agent-email`) is also kept for local dev / `pnpm link`.
 
 ## Data model
 
@@ -214,10 +231,10 @@ avoided to prevent drift from the plugin's expected schema.
 4. `pnpm run deploy`.
 5. Run the verification checklist above against the deployed Worker.
 
-## Open questions
+## Resolved decisions
 
-1. **CLI distribution** — local workspace bin only, or set up for `npm publish`
-   / `npx agent-email`? (Defaulting to workspace bin + `bin` field; easy to
-   publish later.)
-2. **Cron cadence** for `purgeExpired` — 15 min assumed; adjust if desired.
+- **Signup** is supported (CLI `signup` command + browser `sign-in` toggle).
+- **CLI distribution** = container image on GHCR (`ghcr.io/<owner>/agent-email`),
+  built/pushed by GitHub Actions; local `bin` kept for dev.
+- **Cron cadence** for `purgeExpired` = every 15 minutes.
 ```
