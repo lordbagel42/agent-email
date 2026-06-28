@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Agent Email — Approve Device</title>
+		<style>
+			* { margin: 0; padding: 0; box-sizing: border-box; }
+			body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+			.container { max-width: 420px; width: 100%; padding: 2rem; }
+			h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+			p { color: #999; margin-bottom: 1.5rem; font-size: 0.9rem; }
+			.code-display { font-size: 1.8rem; font-family: monospace; letter-spacing: 0.15em; color: #60a5fa; text-align: center; padding: 1rem; background: #1a1a1a; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #333; }
+			input { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #333; border-radius: 6px; background: #1a1a1a; color: #e5e5e5; font-size: 1rem; margin-bottom: 1rem; }
+			.btn-row { display: flex; gap: 0.75rem; }
+			button { flex: 1; padding: 0.7rem; border: none; border-radius: 6px; font-size: 0.9rem; cursor: pointer; font-weight: 500; }
+			.btn-approve { background: #3b82f6; color: white; }
+			.btn-approve:hover { background: #2563eb; }
+			.btn-deny { background: #333; color: #e5e5e5; }
+			.btn-deny:hover { background: #444; }
+			.msg { font-size: 0.85rem; display: none; padding: 0.5rem 0; }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Approve Device Login</h1>
+			<p>Enter the code displayed in your terminal to approve the CLI login.</p>
+			<div class="code-display" id="code-display"></div>
+			<input type="text" id="code" placeholder="XXXX-XXXX" autocomplete="off" />
+			<div class="msg" id="msg"></div>
+			<div class="btn-row">
+				<button class="btn-approve" onclick="act('approve')">Approve</button>
+				<button class="btn-deny" onclick="act('deny')">Deny</button>
+			</div>
+		</div>
+		<script>
+			const params = new URLSearchParams(location.search);
+			const userCode = params.get('user_code') || '';
+			const codeInput = document.getElementById('code');
+			const codeDisplay = document.getElementById('code-display');
+			codeInput.value = userCode;
+			codeDisplay.textContent = userCode || '—';
+
+			async function act(action) {
+				const userCode = codeInput.value.trim();
+				const msgEl = document.getElementById('msg');
+				msgEl.style.display = 'none';
+				try {
+					const r = await fetch('/api/auth/device/' + action, {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						credentials: 'include',
+						body: JSON.stringify({ userCode }),
+					});
+					if (r.status === 401) {
+						location.href = '/sign-in?next=' + encodeURIComponent(location.href);
+						return;
+					}
+					msgEl.style.display = 'block';
+					if (r.ok) {
+						msgEl.style.color = '#22c55e';
+						msgEl.textContent = action === 'approve'
+							? '✓ Approved — return to your terminal.'
+							: '✓ Denied.';
+					} else {
+						const data = await r.json().catch(() => ({}));
+						msgEl.style.color = '#ef4444';
+						msgEl.textContent = data.message || 'Failed: ' + r.status;
+					}
+				} catch (err) {
+					msgEl.style.display = 'block';
+					msgEl.style.color = '#ef4444';
+					msgEl.textContent = err.message;
+				}
+			}
+		</script>
+	</body>
+</html>

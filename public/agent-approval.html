@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Agent Email — Approve Agent</title>
+		<style>
+			* { margin: 0; padding: 0; box-sizing: border-box; }
+			body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+			.container { max-width: 480px; width: 100%; padding: 2rem; }
+			h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+			p { color: #999; margin-bottom: 1rem; font-size: 0.9rem; }
+			.card { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+			.card h2 { font-size: 1rem; margin-bottom: 0.5rem; }
+			.capabilities { list-style: none; padding: 0; }
+			.capabilities li { padding: 0.3rem 0; color: #a3e635; font-size: 0.9rem; }
+			.capabilities li::before { content: "✓ "; }
+			.code-box { font-family: monospace; font-size: 1.2rem; letter-spacing: 0.1em; color: #60a5fa; }
+			input[type=text] { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #333; border-radius: 6px; background: #111; color: #e5e5e5; font-size: 1rem; margin-bottom: 1rem; }
+			.btn-row { display: flex; gap: 0.75rem; }
+			button { flex: 1; padding: 0.7rem; border: none; border-radius: 6px; font-size: 0.9rem; cursor: pointer; font-weight: 500; }
+			.btn-approve { background: #3b82f6; color: white; }
+			.btn-approve:hover { background: #2563eb; }
+			.btn-deny { background: #333; color: #e5e5e5; }
+			.btn-deny:hover { background: #444; }
+			.msg { font-size: 0.85rem; display: none; padding: 0.5rem 0; }
+			#loading { color: #999; font-size: 0.9rem; }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Agent Access Request</h1>
+			<p>An AI agent is requesting permission to access your Agent Email capabilities.</p>
+
+			<div id="loading">Loading request details...</div>
+			<div id="request-details" style="display:none">
+				<div class="card">
+					<h2>Agent</h2>
+					<div id="agent-name" class="code-box">—</div>
+				</div>
+				<div class="card">
+					<h2>Requested Capabilities</h2>
+					<ul id="capabilities-list" class="capabilities"></ul>
+				</div>
+				<div class="card">
+					<h2>Confirm Code</h2>
+					<p style="margin-bottom:0.5rem">Enter the code shown in the agent's output:</p>
+					<input type="text" id="user-code" placeholder="XXXX-XXXX" autocomplete="off" />
+				</div>
+			</div>
+
+			<div class="msg" id="msg"></div>
+			<div class="btn-row">
+				<button class="btn-approve" onclick="act('approve')">Approve</button>
+				<button class="btn-deny" onclick="act('deny')">Deny</button>
+			</div>
+		</div>
+		<script>
+			const params = new URLSearchParams(location.search);
+			const agentId = params.get('agent_id') || '';
+			const code = params.get('code') || '';
+
+			if (code) document.getElementById('user-code').value = code;
+
+			// Try to load agent info and pending capabilities
+			async function loadDetails() {
+				if (!agentId) {
+					document.getElementById('loading').textContent = 'No agent_id in URL. Open this page from the agent flow.';
+					return;
+				}
+				try {
+					const r = await fetch('/api/auth/agent/get?agentId=' + encodeURIComponent(agentId), {
+						credentials: 'include',
+					});
+					if (r.status === 401) {
+						location.href = '/sign-in?next=' + encodeURIComponent(location.href);
+						return;
+					}
+					if (r.ok) {
+						const data = await r.json().catch(() => ({}));
+						const agent = data.agent || data;
+						document.getElementById('agent-name').textContent = agent.name || agentId;
+						const caps = agent.capabilityGrants || [];
+						const list = document.getElementById('capabilities-list');
+						if (caps.length) {
+							for (const c of caps) {
+								const li = document.createElement('li');
+								li.textContent = typeof c === 'string' ? c : c.capability || JSON.stringify(c);
+								list.appendChild(li);
+							}
+						} else {
+							list.innerHTML = '<li style="color:#999">No specific capabilities listed</li>';
+						}
+					}
+					document.getElementById('loading').style.display = 'none';
+					document.getElementById('request-details').style.display = 'block';
+				} catch {
+					document.getElementById('loading').textContent = 'Could not load agent details.';
+					document.getElementById('request-details').style.display = 'block';
+				}
+			}
+			loadDetails();
+
+			async function act(action) {
+				const msgEl = document.getElementById('msg');
+				msgEl.style.display = 'none';
+				const userCode = document.getElementById('user-code').value.trim();
+				try {
+					const body = {
+						action,
+						...(agentId ? { agent_id: agentId } : {}),
+						...(action === 'approve' && userCode ? { user_code: userCode } : {}),
+					};
+					const r = await fetch('/api/auth/agent/approve-capability', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						credentials: 'include',
+						body: JSON.stringify(body),
+					});
+					if (r.status === 401) {
+						location.href = '/sign-in?next=' + encodeURIComponent(location.href);
+						return;
+					}
+					msgEl.style.display = 'block';
+					if (r.ok) {
+						msgEl.style.color = '#22c55e';
+						msgEl.textContent = action === 'approve'
+							? '✓ Agent approved — it can now execute the granted capabilities.'
+							: '✓ Request denied.';
+					} else {
+						const data = await r.json().catch(() => ({}));
+						msgEl.style.color = '#ef4444';
+						msgEl.textContent = data.message || 'Failed: ' + r.status;
+					}
+				} catch (err) {
+					msgEl.style.display = 'block';
+					msgEl.style.color = '#ef4444';
+					msgEl.textContent = err.message;
+				}
+			}
+		</script>
+	</body>
+</html>

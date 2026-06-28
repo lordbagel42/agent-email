@@ -166,14 +166,14 @@ Commands:
 Distribution: **container image on GHCR.** A `cli/Dockerfile` builds the CLI
 into a small Node image; a GitHub Actions workflow
 (`.github/workflows/cli-image.yml`) builds and pushes
-`ghcr.io/<owner>/agent-email` on git tags (and `latest` on main). Usage:
+`ghcr.io/lordbagel42/agent-email` on git tags (and `latest` on main). Usage:
 
 ```bash
 docker run --rm -it \
   -v "$HOME/.config/agent-email:/root/.config/agent-email" \
-  ghcr.io/<owner>/agent-email login
+  ghcr.io/lordbagel42/agent-email login
 # or, headless:
-docker run --rm -e AGENT_EMAIL_TOKEN=... ghcr.io/<owner>/agent-email ls
+docker run --rm -e AGENT_EMAIL_TOKEN=... ghcr.io/lordbagel42/agent-email ls
 ```
 
 A `bin` entry (`agent-email`) is also kept for local dev / `pnpm link`.
@@ -234,7 +234,7 @@ avoided to prevent drift from the plugin's expected schema.
 ## Resolved decisions
 
 - **Signup** is supported (CLI `signup` command + browser `sign-in` toggle).
-- **CLI distribution** = container image on GHCR (`ghcr.io/<owner>/agent-email`),
+- **CLI distribution** = container image on GHCR (`ghcr.io/lordbagel42/agent-email`),
   built/pushed by GitHub Actions; local `bin` kept for dev.
 - **Cron cadence** for `purgeExpired` = every 15 minutes.
 ```

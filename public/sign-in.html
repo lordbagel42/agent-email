@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Agent Email — Sign In</title>
+		<style>
+			* { margin: 0; padding: 0; box-sizing: border-box; }
+			body { font-family: system-ui, sans-serif; background: #0a0a0a; color: #e5e5e5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+			.container { max-width: 420px; width: 100%; padding: 2rem; }
+			h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+			p { color: #999; margin-bottom: 1.5rem; font-size: 0.9rem; }
+			form { display: flex; flex-direction: column; gap: 0.75rem; }
+			label { font-size: 0.85rem; color: #ccc; }
+			input { padding: 0.6rem 0.8rem; border: 1px solid #333; border-radius: 6px; background: #1a1a1a; color: #e5e5e5; font-size: 0.9rem; }
+			button { padding: 0.7rem; border: none; border-radius: 6px; background: #3b82f6; color: white; font-size: 0.9rem; cursor: pointer; font-weight: 500; }
+			button:hover { background: #2563eb; }
+			.msg { font-size: 0.85rem; display: none; padding: 0.5rem 0; }
+			.links { margin-top: 1rem; text-align: center; font-size: 0.85rem; }
+			.links a { color: #3b82f6; text-decoration: none; }
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Agent Email</h1>
+			<p>Sign in to manage addresses or approve AI agent access. After signing in, return to your terminal.</p>
+			<div class="msg" id="msg"></div>
+			<form id="auth-form">
+				<label for="email">Email</label>
+				<input type="email" id="email" name="email" required />
+				<label for="password">Password</label>
+				<input type="password" id="password" name="password" required />
+				<button type="submit" id="submit-btn">Sign In</button>
+			</form>
+			<div class="links">
+				<a href="#" id="toggle-mode">Need an account? Sign up</a>
+			</div>
+		</div>
+		<script>
+			let isSignUp = false;
+			const form = document.getElementById('auth-form');
+			const toggle = document.getElementById('toggle-mode');
+			const btn = document.getElementById('submit-btn');
+			const msgEl = document.getElementById('msg');
+
+			toggle.addEventListener('click', (e) => {
+				e.preventDefault();
+				isSignUp = !isSignUp;
+				btn.textContent = isSignUp ? 'Sign Up' : 'Sign In';
+				toggle.textContent = isSignUp ? 'Have an account? Sign in' : 'Need an account? Sign up';
+				msgEl.style.display = 'none';
+			});
+
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				msgEl.style.display = 'none';
+				const email = document.getElementById('email').value;
+				const password = document.getElementById('password').value;
+				const endpoint = isSignUp ? '/api/auth/sign-up/email' : '/api/auth/sign-in/email';
+				try {
+					const res = await fetch(endpoint, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						credentials: 'include',
+						body: JSON.stringify({ email, password, name: email.split('@')[0] }),
+					});
+					const data = await res.json().catch(() => ({}));
+					if (!res.ok) throw new Error(data.message || 'Error ' + res.status);
+					msgEl.style.display = 'block';
+					msgEl.style.color = '#22c55e';
+					msgEl.textContent = '✓ Signed in! Return to your terminal.';
+					const next = new URLSearchParams(location.search).get('next');
+					if (next) setTimeout(() => { location.href = next; }, 800);
+				} catch (err) {
+					msgEl.style.display = 'block';
+					msgEl.style.color = '#ef4444';
+					msgEl.textContent = err.message;
+				}
+			});
+		</script>
+	</body>
+</html>
