@@ -9,7 +9,7 @@ export interface DeviceCodeResponse {
 
 export async function requestDeviceCode(baseUrl: string, fetchImpl: typeof fetch = fetch): Promise<DeviceCodeResponse> {
   const res = await fetchImpl(`${baseUrl}/api/auth/device/code`, {
-    method: "POST", headers: { "content-type": "application/json" },
+    method: "POST", headers: { "content-type": "application/json", origin: baseUrl },
     body: JSON.stringify({ client_id: CLIENT_ID }),
   });
   if (!res.ok) throw new Error(`device/code failed: ${res.status}`);
@@ -23,7 +23,7 @@ export async function pollDeviceToken(
   let interval = Math.max(intervalSec, 1);
   for (;;) {
     const res = await fetchImpl(`${baseUrl}/api/auth/device/token`, {
-      method: "POST", headers: { "content-type": "application/json" },
+      method: "POST", headers: { "content-type": "application/json", origin: baseUrl },
       body: JSON.stringify({ grant_type: "urn:ietf:params:oauth:grant-type:device_code", device_code: deviceCode, client_id: clientId }),
     });
     const data = await res.json().catch(() => ({})) as Record<string, unknown>;

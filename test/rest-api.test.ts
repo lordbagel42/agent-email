@@ -16,15 +16,23 @@ beforeEach(async () => {
 });
 
 async function signUpAndToken(): Promise<string> {
-  // Sign up via better-auth, then create a session token through the bearer flow.
+  // requireEmailVerification is on, so sign-up does NOT auto-create a session.
+  // Simulate admin approval by flipping emailVerified in the DB, then sign in
+  // to obtain a bearer session token (the same path a verified user takes).
   const email = `u${crypto.randomUUID().slice(0, 8)}@example.com`;
-  const res = await SELF.fetch("https://email.agent.raygen.dev/api/auth/sign-up/email", {
+  const signup = await SELF.fetch("https://email.agent.raygen.dev/api/auth/sign-up/email", {
     method: "POST", headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, password: "password12345", name: "u" }),
   });
-  expect(res.ok).toBe(true);
-  // bearer plugin returns the session token in the set-auth-token header
-  const token = res.headers.get("set-auth-token");
+  expect(signup.ok).toBe(true);
+  await env.DB.prepare(`UPDATE "user" SET emailVerified = 1 WHERE email = ?`).bind(email).run();
+
+  const signin = await SELF.fetch("https://email.agent.raygen.dev/api/auth/sign-in/email", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email, password: "password12345" }),
+  });
+  expect(signin.ok).toBe(true);
+  const token = signin.headers.get("set-auth-token");
   expect(token).toBeTruthy();
   return token!;
 }
