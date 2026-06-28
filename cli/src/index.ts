@@ -6,6 +6,7 @@ import { doLogin, doSignup, doLogout, doWhoami } from "./commands/auth.js";
 import { listEmails, newEmail, rmEmail, inbox, readEmail } from "./commands/emails.js";
 import { runReceive } from "./commands/receive.js";
 import { listAgents, revokeAgent } from "./commands/agents.js";
+import { listUsers, verifyUser } from "./commands/admin.js";
 
 const program = new Command();
 program.name("agent-email").description("Disposable agent email — CLI").version("0.1.0")
@@ -47,6 +48,13 @@ program.command("receive").description("One-shot: create address, wait for first
 const agents = program.command("agents").description("Manage connected agents");
 agents.command("ls").description("List connected agents").action(() => listAgents(authed()));
 agents.command("revoke <id>").description("Revoke an agent's access").action((id) => revokeAgent(authed(), id));
+
+const adminCmd = program.command("admin").description("Admin: manage users (requires admin role)");
+adminCmd.command("ls").description("List users")
+  .option("-u, --unverified", "show only unverified users")
+  .action((o) => listUsers(authed(), { unverified: !!o.unverified }));
+adminCmd.command("verify <emailOrId>").description("Verify a user's email so they can sign in")
+  .action((x) => verifyUser(authed(), x));
 
 program.parseAsync().catch((e) => {
   if (e instanceof ApiError && e.status === 401) console.error("Session expired. Run `agent-email login`.");

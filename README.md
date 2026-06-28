@@ -92,9 +92,32 @@ node dist/index.js --help
 | `read <id>` | Print a full message. |
 | `receive [-p] [-t] [--timeout s]` | One-shot: create → wait for first email → print → auto-delete. |
 | `agents ls` / `agents revoke <id>` | Manage connected agents. |
+| `admin ls [-u]` | (admin) List users; `-u` shows only unverified. |
+| `admin verify <email\|id>` | (admin) Verify a user so they can sign in. |
 
 Config lives at `~/.config/agent-email/config.json` (mode `0600`). Overridable
 via `--token` / `AGENT_EMAIL_TOKEN`, `--url` / `AGENT_EMAIL_URL`, `--config`.
+
+## Accounts & verification
+
+New accounts require **admin approval** before they can sign in (no verification
+email is sent). The flow:
+
+1. A user signs up (`agent-email signup` or `/sign-in`). They're created
+   **unverified** and sign-in is blocked (`EMAIL_NOT_VERIFIED`).
+2. An admin runs `agent-email admin ls -u` to see pending users, then
+   `agent-email admin verify <email>`.
+3. The user can now log in.
+
+`raygenrrupe@gmail.com` is hardcoded (`ADMIN_EMAIL` in `src/auth.ts`) as a
+bootstrap **admin** — on signup it's auto-verified and given the `admin` role, so
+it can verify everyone else. Admin powers come from better-auth's `admin` plugin.
+
+**Interaction with agent auth:** agents run in **delegated mode only**. An agent
+can act solely on behalf of a human who approves its capability request in the
+browser — and since sign-in requires a verified email, every approver is a
+verified user. Agents therefore cannot self-provision accounts or bypass
+admin-approval. (Autonomous mode is intentionally disabled.)
 
 ## Setup / Deploy
 
@@ -103,6 +126,7 @@ via `--token` / `AGENT_EMAIL_TOKEN`, `--url` / `AGENT_EMAIL_URL`, `--config`.
 npx wrangler d1 execute agent-email-db --remote --file=migrations/001_better_auth.sql
 npx wrangler d1 execute agent-email-db --remote --file=schema.sql
 npx wrangler d1 execute agent-email-db --remote --file=migrations/0002_agent_auth.sql
+npx wrangler d1 execute agent-email-db --remote --file=migrations/003_admin.sql
 
 # 2. Set the auth secret (32+ random chars: openssl rand -base64 32)
 npx wrangler secret put AUTH_SECRET
@@ -128,6 +152,7 @@ pnpm run dev       # local; note Email Routing only fires when deployed
 npx wrangler d1 execute agent-email-db --local --file=migrations/001_better_auth.sql
 npx wrangler d1 execute agent-email-db --local --file=schema.sql
 npx wrangler d1 execute agent-email-db --local --file=migrations/0002_agent_auth.sql
+npx wrangler d1 execute agent-email-db --local --file=migrations/003_admin.sql
 ```
 
 ## Notes
