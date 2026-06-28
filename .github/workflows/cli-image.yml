@@ -1,9 +1,8 @@
 name: CLI image
 on:
   push:
-    tags: ["v*"]
     branches: ["main"]
-    paths: ["cli/**", ".github/workflows/cli-image.yml"]
+    tags: ["v*"]
   workflow_dispatch:
 permissions:
   contents: read

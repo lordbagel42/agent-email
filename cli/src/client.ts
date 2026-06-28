@@ -6,7 +6,9 @@ export interface ClientOpts { baseUrl: string; token?: string; }
 export class ApiClient {
   constructor(private opts: ClientOpts, private fetchImpl: typeof fetch = fetch) {}
   private async req<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = { accept: "application/json" };
+    // Origin must match a trusted origin or better-auth rejects state-changing
+    // requests with "Missing or null Origin" (CSRF protection).
+    const headers: Record<string, string> = { accept: "application/json", origin: this.opts.baseUrl };
     if (this.opts.token) headers.authorization = `Bearer ${this.opts.token}`;
     if (body !== undefined) headers["content-type"] = "application/json";
     const res = await this.fetchImpl(this.opts.baseUrl + path, {
